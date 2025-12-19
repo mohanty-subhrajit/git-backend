@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const Repository = require("../models/repoModel");
-const User = require("../models/userModel");
+const User = require("../models/usermodel");
 const Issue = require("../models/issueModel");
 
 async function createIssue(req, res) {
