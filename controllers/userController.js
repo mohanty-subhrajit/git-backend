@@ -22,7 +22,6 @@ const jwt = require('jsonwebtoken');
 const  bcrypt = require("bcryptjs");
 const {mongoClient, MongoClient, ReturnDocument }= require('mongodb');
 const dotenv = require('dotenv');
-const { required } = require('yargs');
 dotenv.config();
 const uri = process.env.MONGODB_URI;
 let client;
