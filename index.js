@@ -11,8 +11,6 @@ const {Server} = require('socket.io');
 //router inports
 const mainRouter = require("./routes/main.router");
 
-const yargs = require('yargs');
-const {hideBin} = require("yargs/helpers");
 const {initRepo} = require("./controllers/init");
 const { addRepo } = require('./controllers/add');
 const {commitRepo} = require("./controllers/commit");
