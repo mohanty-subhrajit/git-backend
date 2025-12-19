@@ -11,16 +11,57 @@ const {Server} = require('socket.io');
 //router inports
 const mainRouter = require("./routes/main.router");
 
+// Start server directly
+const app = express();
+const port = process.env.PORT || 3002;
+
+// Import rate limiters
+const { generalLimiter } = require('./middleware/rateLimiter');
+
+// Apply rate limiting to all routes
+app.use(generalLimiter);
+
+app.use(cors({origin:"*"}));
+app.use(bodyParser.json());
+app.use(express.json());
+
+const mongoURI = process.env.MONGODB_URI;
+
+//connecting mongo db
+mongoose
+    .connect(mongoURI)
+    .then(()=>console.log("mongoDB connected"))
+    .catch((err)=>{console.error("unable to connect",err)});
+
+app.use("/",mainRouter);
+let user ="test";
+const httpServer = http.createServer(app);
+const io = new Server(httpServer,{
+    cors:{
+        origin:"*",
+        methods :["GET","POST"]
+    }
+});
+
+io.on("connection",(socket)=>{
+    socket.on("joinRoom",(userID)=>{
+        user = userID ;
+        console.log("=====");
+        console.log(user);
+        console.log("=====");
+        socket.join(userID);
+    });
+});
+
+const db = mongoose.connection ;
+
+httpServer.listen(port,()=>{
+    console.log(`server is running on PORT ${port}`);
+});
+
+/* CLI code commented out - use separate CLI file if needed
 const {initRepo} = require("./controllers/init");
 const { addRepo } = require('./controllers/add');
-const {commitRepo} = require("./controllers/commit");
-const {pullRepo} = require("./controllers/pull");
-const {pushRepo}=  require("./controllers/push");
-const { revertRepo} = require ("./controllers/revert");
-
-
-
-yargs(hideBin(process.argv))
 .command("start","start a new server",{},startServer)
 .command('init',"Initialize a new repository",{},initRepo)
 .command('add <file>',"add a file to the repository",(yargs)=>{
@@ -58,58 +99,4 @@ yargs(hideBin(process.argv))
 )
 
 .demandCommand(1,"you need at least one command").help().argv;
-
-function startServer(){
-    const app = express();
-    const port = process.env.PORT || 3002;
-    
-    // Import rate limiters
-    const { generalLimiter } = require('./middleware/rateLimiter');
-
-    // Apply rate limiting to all routes
-    app.use(generalLimiter);
-    
-    app.use(cors({origin:"*"}));
-    app.use(bodyParser.json());
-    app.use(express.json());
-
-    const mongoURI = process.env.MONGODB_URI;
-    
-    //connecting mongo db
-    mongoose
-        .connect(mongoURI)
-        .then(()=>console.log("mongoDB connected"))
-        .catch((err)=>{console.error("unable to connect",err)});
-
-    app.use("/",mainRouter);
-    let user ="test";
-    const httpServer = http.createServer(app);
-    const io = new Server(httpServer,{
-        cors:{
-            origin:"*",
-            methods :["GET","POST"]
-        }
-    });
-
-    io.on("connection",(socket)=>{
-        socket.on("joinRoom",(userID)=>{
-            user = userID ;
-            console.log("=====");
-            console.log(user);
-            console.log("=====");
-            socket.join(userID);
-
-        });
-    });
-
-    const db = mongoose.connection ;
-
-    // db.once("open", async()=>{
-    //     console.log("CRUD operaction called");
-    //     //CRUD operaction
-    // });
-
-    httpServer.listen(port,()=>{
-        console.log(`server is running on PORT ${port}`);
-    });
-}
+*/
