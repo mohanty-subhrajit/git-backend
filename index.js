@@ -15,6 +15,9 @@ const mainRouter = require("./routes/main.router");
 const app = express();
 const port = process.env.PORT || 3002;
 
+// Trust proxy for rate limiting behind Nginx
+app.set('trust proxy', 1);
+
 // Import rate limiters
 const { generalLimiter } = require('./middleware/rateLimiter');
 

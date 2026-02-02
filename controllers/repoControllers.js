@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Repository = require("../models/repoModel");
 const User = require("../models/usermodel");
 const Issue = require("../models/issueModel");
+const Commit = require("../models/commitModel");
+const { s3, S3_BUCKET } = require("../config/aws-config");
 
 async function createRepository(req, res) {
   const { owner, name, issues, content, description, visibility } = req.body;
@@ -150,12 +152,65 @@ async function toggleVisibilityById(req, res) {
 async function deleteRepositoryById(req, res) {
   const { id } = req.params;
   try {
-    const repository = await Repository.findByIdAndDelete(id);
+    // Find repository first
+    const repository = await Repository.findById(id);
     if (!repository) {
       return res.status(404).json({ error: "Repository not found!" });
     }
 
-    res.json({ message: "Repository deleted successfully!" });
+    // Find all commits for this repository
+    const commits = await Commit.find({ repositoryId: id });
+    
+    // Delete all files from S3 for each commit
+    const deletePromises = [];
+    for (const commit of commits) {
+      if (commit.s3Path) {
+        // Delete all files in the commit folder
+        const listParams = {
+          Bucket: S3_BUCKET,
+          Prefix: commit.s3Path,
+        };
+        
+        try {
+          const listedObjects = await s3.listObjectsV2(listParams).promise();
+          
+          if (listedObjects.Contents.length > 0) {
+            const deleteParams = {
+              Bucket: S3_BUCKET,
+              Delete: {
+                Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
+              },
+            };
+            deletePromises.push(s3.deleteObjects(deleteParams).promise());
+          }
+        } catch (s3Error) {
+          console.error(`Error deleting S3 files for commit ${commit.commitId}:`, s3Error.message);
+        }
+      }
+    }
+    
+    // Wait for all S3 deletions to complete
+    await Promise.all(deletePromises);
+    
+    // Delete all commits for this repository
+    await Commit.deleteMany({ repositoryId: id });
+    
+    // Delete all issues for this repository
+    await Issue.deleteMany({ repository: id });
+    
+    // Remove repository from starred lists
+    await User.updateMany(
+      { starred: id },
+      { $pull: { starred: id } }
+    );
+    
+    // Finally, delete the repository
+    await Repository.findByIdAndDelete(id);
+
+    res.json({ 
+      message: "Repository and all associated data deleted successfully!",
+      deletedCommits: commits.length,
+    });
   } catch (err) {
     console.error("Error during deleting repository : ", err.message);
     res.status(500).send("Server error");
